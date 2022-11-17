@@ -109,16 +109,27 @@ int doFork(int functionAddr) {
     // currentThread->space->GetNumPages() <= mm->GetFreePageCount()
     // if check fails, return -1
 
+    if(currentThread->space->GetNumPages()<=mm->GetFreePageCount()){
+
     // 2. SaveUserState for the parent thread
     // currentThread->SaveUserState();
+
+    currentThread->SaveUserState();
 
     // 3. Create a new address space for child by copying parent address space
     // Parent: currentThread->space
     // childAddrSpace: new AddrSpace(currentThread->space)
 
+    AddrSpace *parent = currentThread->space;
+    AddrSpace *childAddrSpace =  new AddrSpace(currentThread->space);
+
     // 4. Create a new thread for the child and set its addrSpace
     // childThread = new Thread("childThread")
     // child->space = childAddSpace;
+
+    Thread *childThread = new Thread("ChildThread");
+    childThread->space = childAddrSpace;
+
 
     // 5. Create a PCB for the child and connect it all up
     // pcb: pcbManager->AllocatePCB();
@@ -126,19 +137,46 @@ int doFork(int functionAddr) {
     // set parent for child pcb
     // add child for parent pcb
 
-    // 6. Set up machine registers for child and save it to child thread
+    PCB *childpcb = pcbManager->AllocatePCB();
+    childpcb->thread = childThread;
+    PCB *currentpcb = parent->pcb;
+    // PCB *currentPCB = currentThread->space->pcb;
+    childpcb->parent = currentpcb;
+    currentpcb->AddChild(childpcb);
+
+     // 6. Set up machine registers for child and save it to child thread
     // PCReg: functionAddr
     // PrevPCReg: functionAddr-4
     // NextPCReg: functionAddr+4
     // childThread->SaveUserState();
 
+    // int currentPCReg = machine->ReadRegister(functionAddr);
+    machine->WriteRegister(PrevPCReg, functionAddr-4);
+    machine->WriteRegister(PCReg, functionAddr);
+    machine->WriteRegister(NextPCReg, functionAddr+4);
+    childThread->SaveUserState();
+
     // 7. Restore register state of parent user-level process
     // currentThread->RestoreUserState()
 
+    currentThread->RestoreUserState();
+
     // 8. Call thread->fork on Child
     // childThread->Fork(childFunction, pcb->pid)
+    childThread->Fork(childFunction, childpcb->pid);
 
     // 9. return pcb->pid;
+
+    return childpcb->pid;
+
+
+
+
+
+    }
+    else{
+        return -1;
+    }
 
 }
 
