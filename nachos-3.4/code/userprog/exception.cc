@@ -53,29 +53,17 @@
 void doExit(int status) {
 
     int pid = 99;
-
     printf("System Call: [%d] invoked [Exit]\n", pid);
     printf ("Process [%d] exits with [%d]\n", pid, status);
-
-
+    delete currentThread->space;
+    currentThread->Finish();
     currentThread->space->pcb->exitStatus = status;
-
     // Manage PCB memory As a parent process
     PCB* pcb = currentThread->space->pcb;
-
     // Delete exited children and set parent null for non-exited ones
     pcb->DeleteExitedChildrenSetParentNull();
-
     // Manage PCB memory As a child process
-    if(pcb->parent == NULL) pcbManager->DeallocatePCB(pcb);
-
-    // Delete address space only after use is completed
-    delete currentThread->space;
-
-    // Finish current thread only after all the cleanup is done
-    // because currentThread marks itself to be destroyed (by a different thread)
-    // and then puts itself to sleep -- thus anything after this statement will not be executed!
-    currentThread->Finish();
+    if(pcb->parent == NULL) delete pcb;
 
 }
 
@@ -92,14 +80,17 @@ void childFunction(int pid) {
 
     // 1. Restore the state of registers
     // currentThread->RestoreUserState()
+    currentThread->RestoreUserState();
 
     // 2. Restore the page table for child
     // currentThread->space->RestoreState()
+    currentThread->space->RestoreState();
 
-    // PCReg == machine->ReadRegister(PCReg)
-    // print message for child creation (pid,  PCReg, currentThread->space->GetNumPages())
+    int PCReg_value = machine->ReadRegister(PCReg);
+    // print message for child creation (pid,  PCReg, currentThread->space->GetNumPages());
+    printf("Process[%d] Fork: Start at address [0x%x] with [%d] pages memory\n", pid, PCReg_value, currentThread->space->GetNumPages());
 
-    // machine->Run();
+    machine->Run();
 
 }
 
@@ -283,6 +274,10 @@ int doKill (int pid) {
 
 
 void doYield() {
+    AddrSpace *currentAddrSpace = currentThread->space;
+	PCB *currentPCB = currentAddrSpace->pcb;
+	printf("System call: [%d] invoked Yield\n", currentPCB->pid);
+	
     currentThread->Yield();
 }
 
